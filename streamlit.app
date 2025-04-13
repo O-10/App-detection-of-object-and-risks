@@ -1,2 +1,5 @@
-# requirements
-requirements
+streamlit
+stripe
+pandas
+matplotlib
+fpdf
