@@ -64,8 +64,7 @@ def interpretar_grafico(df):
 
 # --- APP PRINCIPAL ---
 def main_app():
-    st.title("🤖 App de Detección de Riesgos Laborales")  # Cambiado el emoji a un robot
-    # Otra opción de emoji: st.title("🧠 App de Detección de Riesgos Laborales")
+    st.title("🤖 App de Detección de Riesgos Laborales")  # Título con emoji de robot
 
     uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
     if uploaded_file:
@@ -97,12 +96,11 @@ if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
     st.title("Bienvenido a la App de Riesgos Laborales")
     st.write("Por favor, inicia sesión en la barra lateral para acceder a las herramientas de análisis.")
-    # Puedes agregar una imagen o más información aquí si lo deseas
-    # try:
-    #     logo = Image.open("tu_logo.png")
-    #     st.image(logo, caption="Análisis de Riesgos Laborales", width=300)
-    # except FileNotFoundError:
-    #     st.warning("Logo no encontrado.")
+    try:
+        ia_logo = Image.open("ia_logo.png")  # Reemplaza "ia_logo.png" con la ruta de tu imagen de IA
+        st.image(ia_logo, caption="Análisis con Inteligencia Artificial", width=300)
+    except FileNotFoundError:
+        st.warning("Imagen de IA no encontrada. Asegúrate de que 'ia_logo.png' esté en la misma carpeta.")
     st.write("Una vez que inicies sesión, podrás subir tu archivo Excel y visualizar el análisis de riesgos.")
 else:
     main_app()
