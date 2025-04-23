@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from fpdf import FPDF
-import tempfile
 import os
+import io
 
 # --- USUARIOS ---
 users = {
@@ -28,17 +27,6 @@ def login():
     st.sidebar.markdown("Creado por: Oscar Iván Solarte")
     st.sidebar.markdown("Profesional en SST y Estudiante en Ciencia de datos e Inteligencia Artificial.")
     st.sidebar.markdown("Más información: 3154013707")
-
-# --- PDF ---
-def generar_pdf(interpretacion):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 10, interpretacion)
-
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-    pdf.output(temp_file.name)
-    return temp_file.name
 
 # --- INTERPRETACIÓN SST ---
 def interpretar_grafico(df):
@@ -90,12 +78,16 @@ def main_app():
         ax.set_title("Análisis de Riesgo por Área")
         st.pyplot(fig)
 
-        interpretacion = interpretar_grafico(df)
+        interpretar_grafico(df)
 
-        if st.button("📄 Descargar informe en PDF"):
-            pdf_path = generar_pdf(interpretacion)
-            with open(pdf_path, "rb") as f:
-                st.download_button("⬇️ Descargar PDF", data=f, file_name="informe_riesgos.pdf")
+        # --- DESCARGA DE CSV ---
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️ Descargar datos como CSV",
+            data=csv,
+            file_name='datos_riesgos.csv',
+            mime='text/csv'
+        )
 
 # --- CONTROL DE FLUJO ---
 if "logged_in" not in st.session_state:
