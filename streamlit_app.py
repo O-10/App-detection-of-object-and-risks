@@ -3,7 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import io
-from PIL import Image  # Para mostrar una imagen (opcional)
 
 # --- USUARIOS ---
 users = {
@@ -22,9 +21,8 @@ def login():
             st.session_state["logged_in"] = True
             st.session_state["user"] = username
             st.success(f"Bienvenido, {username}")
-            st.rerun()
         else:
-            st.sidebar.error("Credenciales incorrectas")
+            st.error("Credenciales incorrectas")
     st.sidebar.markdown("---")
     st.sidebar.markdown("Creado por: Oscar Iván Solarte")
     st.sidebar.markdown("Profesional en SST y Estudiante en Ciencia de datos e Inteligencia Artificial.")
@@ -64,7 +62,7 @@ def interpretar_grafico(df):
 
 # --- APP PRINCIPAL ---
 def main_app():
-    st.title("🤖 App de Detección de Riesgos Laborales")  # Título con emoji de robot
+    st.title("🛠️ App de Detección de Riesgos Laborales")
 
     uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
     if uploaded_file:
@@ -94,16 +92,8 @@ def main_app():
 # --- CONTROL DE FLUJO ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
-    st.title("Bienvenido a la App de Riesgos Laborales")
-    st.write("Por favor, inicia sesión en la barra lateral para acceder a las herramientas de análisis.")
-    try:
-        ia_logo = Image.open("ia_logo.png")  # Reemplaza "ia_logo.png" con la ruta de tu imagen de IA
-        st.image(ia_logo, caption="Análisis con Inteligencia Artificial", width=300)
-    except FileNotFoundError:
-        st.warning("Imagen de IA no encontrada. Asegúrate de que 'ia_logo.png' esté en la misma carpeta.")
-    st.write("Una vez que inicies sesión, podrás subir tu archivo Excel y visualizar el análisis de riesgos.")
+
+if not st.session_state["logged_in"]:
+    login()
 else:
     main_app()
-
-if __name__ == "__main__":
-    main()
