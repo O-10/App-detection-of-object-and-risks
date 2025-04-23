@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 import io
+from PIL import Image  # Para mostrar una imagen (opcional)
 
 # --- USUARIOS ---
 users = {
@@ -21,8 +22,9 @@ def login():
             st.session_state["logged_in"] = True
             st.session_state["user"] = username
             st.success(f"Bienvenido, {username}")
+            st.rerun()
         else:
-            st.error("Credenciales incorrectas")
+            st.sidebar.error("Credenciales incorrectas")
     st.sidebar.markdown("---")
     st.sidebar.markdown("Creado por: Oscar Iván Solarte")
     st.sidebar.markdown("Profesional en SST y Estudiante en Ciencia de datos e Inteligencia Artificial.")
@@ -62,7 +64,8 @@ def interpretar_grafico(df):
 
 # --- APP PRINCIPAL ---
 def main_app():
-    st.title("🛠️ App de Detección de Riesgos Laborales")
+    st.title("🤖 App de Detección de Riesgos Laborales")  # Cambiado el emoji a un robot
+    # Otra opción de emoji: st.title("🧠 App de Detección de Riesgos Laborales")
 
     uploaded_file = st.file_uploader("Sube tu archivo Excel (.xlsx)", type=["xlsx"])
     if uploaded_file:
@@ -92,8 +95,17 @@ def main_app():
 # --- CONTROL DE FLUJO ---
 if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
-
-if not st.session_state["logged_in"]:
-    login()
+    st.title("Bienvenido a la App de Riesgos Laborales")
+    st.write("Por favor, inicia sesión en la barra lateral para acceder a las herramientas de análisis.")
+    # Puedes agregar una imagen o más información aquí si lo deseas
+    # try:
+    #     logo = Image.open("tu_logo.png")
+    #     st.image(logo, caption="Análisis de Riesgos Laborales", width=300)
+    # except FileNotFoundError:
+    #     st.warning("Logo no encontrado.")
+    st.write("Una vez que inicies sesión, podrás subir tu archivo Excel y visualizar el análisis de riesgos.")
 else:
     main_app()
+
+if __name__ == "__main__":
+    main()
