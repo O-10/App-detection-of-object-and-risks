@@ -6,7 +6,7 @@ import io
 
 # --- USUARIOS ---
 users = {
-    "usuario1": "Ariser10",
+    "usuario1": "Os#101",
     "oscar": "Lolita40"
 }
 
