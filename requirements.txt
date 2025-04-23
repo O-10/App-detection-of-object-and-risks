@@ -5,3 +5,4 @@ matplotlib
 fpdf
 opencv-python
 import cv2
+pip install opencv-python-headless
