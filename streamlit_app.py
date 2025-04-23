@@ -7,7 +7,7 @@ from roboflow import Roboflow
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
-
+pip install opencv-python
 # ⚙️ Conectar con Roboflow
 rf = Roboflow(api_key="ZTgQTJF0CA75bTfQixhE")  # Usa tu API Key
 project = rf.workspace().project("construccion-oscar")
