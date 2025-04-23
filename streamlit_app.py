@@ -1,7 +1,5 @@
-# requirements.py
 import streamlit as st
 import pandas as pd
-import stripe
 import matplotlib.pyplot as plt
 from fpdf import FPDF
 import tempfile
@@ -9,12 +7,9 @@ import os
 
 # --- USUARIOS ---
 users = {
-    "usuario1": "clave123",
-    "oscar": "segura456"
+    "usuario1": "Ariser10",
+    "oscar": "Lolita40"
 }
-
-# --- CLAVE SECRETA STRIPE ---
-stripe.api_key = "sk_test_tu_clave_privada"  # 🔁 Reemplázala por tu clave real
 
 # --- LOGIN ---
 def login():
@@ -29,26 +24,10 @@ def login():
             st.success(f"Bienvenido, {username}")
         else:
             st.error("Credenciales incorrectas")
-
-# --- BOTÓN DE PAGO ---
-def show_payment_button():
-    st.write("💳 Esta sección es Premium. Realiza el pago para continuar.")
-    if st.button("Pagar con Stripe"):
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {'name': 'Acceso Premium - App detección de riesgos'},
-                    'unit_amount': 3000,  # 30 USD
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            success_url='https://TU-APP.streamlit.app?paid=true',
-            cancel_url='https://TU-APP.streamlit.app',
-        )
-        st.markdown(f"[Haz clic aquí para pagar]({session.url})", unsafe_allow_html=True)
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("Creado por: Oscar Iván Solarte")
+    st.sidebar.markdown("Profesional en SST y Estudiante en Ciencia de datos e Inteligencia Artificial.")
+    st.sidebar.markdown("Más información: 3154013707")
 
 # --- PDF ---
 def generar_pdf(interpretacion):
@@ -125,8 +104,4 @@ if "logged_in" not in st.session_state:
 if not st.session_state["logged_in"]:
     login()
 else:
-    query_params = st.experimental_get_query_params()
-    if "paid" in query_params and query_params["paid"][0] == "true":
-        main_app()
-    else:
-        show_payment_button()
+    main_app()
