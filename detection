@@ -4,3 +4,4 @@ pandas
 matplotlib
 fpdf
 pip install opencv-python-headless
+import cv2
