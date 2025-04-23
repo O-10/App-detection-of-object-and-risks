@@ -3,3 +3,4 @@ stripe
 pandas
 matplotlib
 fpdf
+pip install opencv-python-headless
