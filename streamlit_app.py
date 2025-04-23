@@ -1,3 +1,4 @@
+import streamlit as st
 import cv2
 import pandas as pd
 import os
@@ -7,33 +8,17 @@ from roboflow import Roboflow
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
-pip install opencv-python
-# ⚙️ Conectar con Roboflow
-rf = Roboflow(api_key="ZTgQTJF0CA75bTfQixhE")  # Usa tu API Key
+
+# 🔧 Configuración de la página
+st.set_page_config(page_title="Análisis de Riesgos", layout="wide")
+st.title("🦺 Detección de Riesgos en Tiempo Real")
+
+# 🧠 Conectar con Roboflow
+rf = Roboflow(api_key="ZTgQTJF0CA75bTfQixhE")
 project = rf.workspace().project("construccion-oscar")
 model = project.version(1).model
 
-# 🎥 Abrir la cámara
-video_url = 0  # 0 = cámara del PC. Cambia por tu URL si usas IP Webcam
-cap = cv2.VideoCapture(video_url)
-
-if not cap.isOpened():
-    raise Exception("No se pudo acceder a la cámara")
-
-# 🎞 Guardar video con detección
-output_path = "video_deteccion_riesgos.avi"
-fourcc = cv2.VideoWriter_fourcc(*"XVID")
-fps = 10.0
-frame_width = int(cap.get(3))
-frame_height = int(cap.get(4))
-out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
-
-# ⏰ Simular jornada
-start_time = datetime.strptime("08:00:00", "%H:%M:%S")
-
-# 📋 Eventos
-eventos = []
-frame_number = 0
+# 📁 Carpeta de frames
 frame_folder = "frames"
 os.makedirs(frame_folder, exist_ok=True)
 
@@ -59,36 +44,26 @@ def get_keywords(obj):
     else:
         return ["riesgo", "precaución", "evaluar"]
 
-# 🎲 Valores GTC 45
 def asignar_valor(lista, rep):
     base = random.choice(lista)
     return min(base + int(rep / 2), max(lista))
 
-deficiencia_vals = [10, 6, 4, 2]
-exposicion_vals = [4, 3, 2, 1]
-consecuencia_vals = [100, 60, 25, 10]
-
-# 🔁 Loop de detección
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
-
+def procesar_frame(frame, frame_number, start_time):
     frame_path = os.path.join(frame_folder, f"frame_{frame_number}.jpg")
     cv2.imwrite(frame_path, frame)
-
+    
     try:
         result = model.predict(frame_path, confidence=40, overlap=30)
         predictions = result.json().get("predictions", [])
     except:
         predictions = []
 
+    eventos = []
     tiempo_simulado = (start_time + timedelta(seconds=frame_number * 2)).strftime("%H:%M:%S")
 
     for pred in predictions:
         objeto = pred["class"]
         palabras_clave = get_keywords(objeto)
-
         eventos.append({
             "frame": frame_number,
             "tiempo": tiempo_simulado,
@@ -97,60 +72,71 @@ while True:
             "palabras_clave": ", ".join(palabras_clave)
         })
 
-        # Dibujar cajas
         x, y, w, h = int(pred["x"]), int(pred["y"]), int(pred["width"]), int(pred["height"])
         cv2.rectangle(frame, (x - w//2, y - h//2), (x + w//2, y + h//2), (0, 255, 0), 2)
         cv2.putText(frame, objeto, (x - w//2, y - h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-    out.write(frame)
-    cv2.imshow("Análisis en vivo", frame)
+    return frame, eventos
 
-    if cv2.waitKey(1) & 0xFF == ord("q") or frame_number > 300:
-        break
+# 🎥 Capturar un solo frame desde la cámara o video
+video_url = 0  # o reemplaza por una imagen o video
+cap = cv2.VideoCapture(video_url)
 
-    frame_number += 1
+if not cap.isOpened():
+    st.error("❌ No se pudo acceder a la cámara")
+    st.stop()
 
+st.info("🔄 Capturando un frame para análisis...")
+ret, frame = cap.read()
 cap.release()
-out.release()
-cv2.destroyAllWindows()
 
-# 📊 Crear DataFrame
+if not ret:
+    st.error("❌ No se pudo capturar un frame")
+    st.stop()
+
+start_time = datetime.strptime("08:00:00", "%H:%M:%S")
+frame_procesado, eventos = procesar_frame(frame, 0, start_time)
+
+# Mostrar frame con detecciones
+st.image(frame_procesado, channels="BGR", caption="Frame Analizado")
+
+# Crear DataFrame y calcular riesgos
 df = pd.DataFrame(eventos)
-df["repeticiones"] = df.groupby(["frame", "objeto"])["objeto"].transform("count")
+if not df.empty:
+    df["repeticiones"] = df.groupby(["frame", "objeto"])["objeto"].transform("count")
 
-# 📌 Calcular riesgo
-calculos = []
-for _, row in df.iterrows():
-    rep = row["repeticiones"]
-    d = asignar_valor(deficiencia_vals, rep)
-    e = asignar_valor(exposicion_vals, rep)
-    c = asignar_valor(consecuencia_vals, rep)
-    p = d * e
-    riesgo = p * c
-    aceptabilidad = "🟥 No Aceptable" if riesgo >= 600 else "🟧 Aceptable con Control" if riesgo >= 150 else "🟩 Aceptable"
-    calculos.append((d, e, p, c, riesgo, aceptabilidad))
+    deficiencia_vals = [10, 6, 4, 2]
+    exposicion_vals = [4, 3, 2, 1]
+    consecuencia_vals = [100, 60, 25, 10]
 
-df[["deficiencia", "exposicion", "probabilidad", "consecuencia", "peligrosidad", "aceptabilidad"]] = pd.DataFrame(calculos, index=df.index)
+    calculos = []
+    for _, row in df.iterrows():
+        rep = row["repeticiones"]
+        d = asignar_valor(deficiencia_vals, rep)
+        e = asignar_valor(exposicion_vals, rep)
+        c = asignar_valor(consecuencia_vals, rep)
+        p = d * e
+        riesgo = p * c
+        aceptabilidad = "🟥 No Aceptable" if riesgo >= 600 else "🟧 Aceptable con Control" if riesgo >= 150 else "🟩 Aceptable"
+        calculos.append((d, e, p, c, riesgo, aceptabilidad))
 
-# 🔁 Acumulados
-total_frames = df["frame"].nunique()
-df["probabilidad_acumulada"] = df["probabilidad"].cumsum() / total_frames
-df["peligrosidad_acumulada"] = df["peligrosidad"].cumsum() / total_frames
+    df[["deficiencia", "exposicion", "probabilidad", "consecuencia", "peligrosidad", "aceptabilidad"]] = pd.DataFrame(calculos, index=df.index)
 
-# 💾 Guardar CSV
-csv_path = "riesgos_detectados.csv"
-df.to_csv(csv_path, index=False)
-print(f"\n✅ CSV guardado en: {csv_path}")
-print(f"🎥 Video guardado en: {output_path}")
+    st.subheader("📋 Tabla de Eventos y Riesgos")
+    st.dataframe(df)
 
-# 📈 Gráfico acumulado
-plt.figure(figsize=(10, 6))
-plt.plot(df["frame"], df["probabilidad_acumulada"], label="Probabilidad Acumulada", color='blue')
-plt.plot(df["frame"], df["peligrosidad_acumulada"], label="Peligrosidad Acumulada", color='red')
-plt.xlabel("Frame")
-plt.ylabel("Valor")
-plt.title("Riesgos Acumulados")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
+    st.subheader("📈 Gráfico de Peligrosidad Acumulada")
+    df["probabilidad_acumulada"] = df["probabilidad"].cumsum()
+    df["peligrosidad_acumulada"] = df["peligrosidad"].cumsum()
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.plot(df["frame"], df["probabilidad_acumulada"], label="Probabilidad Acumulada", color="blue")
+    ax.plot(df["frame"], df["peligrosidad_acumulada"], label="Peligrosidad Acumulada", color="red")
+    ax.set_xlabel("Frame")
+    ax.set_ylabel("Valor")
+    ax.set_title("Riesgos Acumulados")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
+else:
+    st.warning("⚠️ No se detectaron objetos de interés en el frame.")
