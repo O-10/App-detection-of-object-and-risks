@@ -1,122 +1,156 @@
-import streamlit as st
+import cv2
 import pandas as pd
+import os
+import random
+from datetime import datetime, timedelta
+from roboflow import Roboflow
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 import matplotlib.pyplot as plt
-import numpy as np
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from io import BytesIO
-from fpdf import FPDF
 
-# Configuración de correo electrónico
-sender_email = 'arisergte@gmail.com'  # Reemplaza con tu correo
-password = 'Oscar10-'  # Usa una contraseña de aplicación si usas Gmail
-smtp_server = 'smtp.gmail.com'
-smtp_port = 587
+# ⚙️ Conectar con Roboflow
+rf = Roboflow(api_key="ZTgQTJF0CA75bTfQixhE")  # Usa tu API Key
+project = rf.workspace().project("construccion-oscar")
+model = project.version(1).model
 
-# Diccionario de usuarios
-users = {'admin': 'admin123', 'usuario1': 'clave123'}
+# 🎥 Abrir la cámara
+video_url = 0  # 0 = cámara del PC. Cambia por tu URL si usas IP Webcam
+cap = cv2.VideoCapture(video_url)
 
-# Función para enviar correo
-def send_email(user_email, password):
+if not cap.isOpened():
+    raise Exception("No se pudo acceder a la cámara")
+
+# 🎞 Guardar video con detección
+output_path = "video_deteccion_riesgos.avi"
+fourcc = cv2.VideoWriter_fourcc(*"XVID")
+fps = 10.0
+frame_width = int(cap.get(3))
+frame_height = int(cap.get(4))
+out = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+
+# ⏰ Simular jornada
+start_time = datetime.strptime("08:00:00", "%H:%M:%S")
+
+# 📋 Eventos
+eventos = []
+frame_number = 0
+frame_folder = "frames"
+os.makedirs(frame_folder, exist_ok=True)
+
+# 🧠 Base de palabras clave
+keywords_db = {
+    "casco": "protección cabeza, evitar golpes",
+    "arnés": "prevención caídas, altura",
+    "chaleco": "alta visibilidad, maquinaria",
+    "persona": "presencia humana, riesgo exposición",
+    "escalera": "trabajo en altura, caída",
+    "andamio": "estructura elevada, colapso"
+}
+
+def get_keywords(obj):
+    corpus = list(keywords_db.values())
+    keys = list(keywords_db.keys())
+    if obj in keys:
+        vectorizer = TfidfVectorizer()
+        tfidf = vectorizer.fit_transform(corpus + [obj])
+        sim = cosine_similarity(tfidf[-1], tfidf[:-1])
+        idx = sim.argmax()
+        return corpus[idx].split(", ")
+    else:
+        return ["riesgo", "precaución", "evaluar"]
+
+# 🎲 Valores GTC 45
+def asignar_valor(lista, rep):
+    base = random.choice(lista)
+    return min(base + int(rep / 2), max(lista))
+
+deficiencia_vals = [10, 6, 4, 2]
+exposicion_vals = [4, 3, 2, 1]
+consecuencia_vals = [100, 60, 25, 10]
+
+# 🔁 Loop de detección
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame_path = os.path.join(frame_folder, f"frame_{frame_number}.jpg")
+    cv2.imwrite(frame_path, frame)
+
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(sender_email, password)
+        result = model.predict(frame_path, confidence=40, overlap=30)
+        predictions = result.json().get("predictions", [])
+    except:
+        predictions = []
 
-        message = MIMEMultipart()
-        message['From'] = sender_email
-        message['To'] = user_email
-        message['Subject'] = 'Acceso al Sistema'
+    tiempo_simulado = (start_time + timedelta(seconds=frame_number * 2)).strftime("%H:%M:%S")
 
-        body = f'Hola, \n\nTu cuenta ha sido creada. Tu usuario es: {user_email} y tu contraseña temporal es: {password}'
-        message.attach(MIMEText(body, 'plain'))
+    for pred in predictions:
+        objeto = pred["class"]
+        palabras_clave = get_keywords(objeto)
 
-        server.sendmail(sender_email, user_email, message.as_string())
-        server.quit()
-        st.success('Correo enviado exitosamente!')
-    except Exception as e:
-        st.error(f'Error al enviar el correo: {e}')
+        eventos.append({
+            "frame": frame_number,
+            "tiempo": tiempo_simulado,
+            "objeto": objeto,
+            "confidence": pred["confidence"],
+            "palabras_clave": ", ".join(palabras_clave)
+        })
 
-# Función para cargar archivo y mostrar análisis
-def load_and_analyze_file(uploaded_file):
-    df = pd.read_excel(uploaded_file)
+        # Dibujar cajas
+        x, y, w, h = int(pred["x"]), int(pred["y"]), int(pred["width"]), int(pred["height"])
+        cv2.rectangle(frame, (x - w//2, y - h//2), (x + w//2, y + h//2), (0, 255, 0), 2)
+        cv2.putText(frame, objeto, (x - w//2, y - h//2 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-    # Mostrar los datos en una tabla
-    st.write(df)
+    out.write(frame)
+    cv2.imshow("Análisis en vivo", frame)
 
-    # Análisis: Calculando el nivel de riesgo promedio
-    if 'Nivel de Riesgo' in df.columns:
-        avg_risk = df['Nivel de Riesgo'].mean()
-        st.write(f'Nivel de riesgo promedio: {avg_risk}')
+    if cv2.waitKey(1) & 0xFF == ord("q") or frame_number > 300:
+        break
 
-        # Generar gráfico de barras
-        plt.figure(figsize=(10, 6))
-        df.groupby('Área')['Nivel de Riesgo'].mean().plot(kind='bar', color='skyblue')
-        plt.title('Nivel de Riesgo por Área')
-        plt.xlabel('Área')
-        plt.ylabel('Nivel de Riesgo')
-        st.pyplot(plt)
+    frame_number += 1
 
-# Función para generar el PDF
-def generate_pdf(df):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
+cap.release()
+out.release()
+cv2.destroyAllWindows()
 
-    # Título
-    pdf.cell(200, 10, txt="Informe de Riesgos Laborales", ln=True, align='C')
+# 📊 Crear DataFrame
+df = pd.DataFrame(eventos)
+df["repeticiones"] = df.groupby(["frame", "objeto"])["objeto"].transform("count")
 
-    # Agregar tabla con los datos
-    for i in range(df.shape[0]):
-        row = df.iloc[i]
-        row_str = ' | '.join(str(x) for x in row)
-        pdf.multi_cell(0, 10, row_str)
+# 📌 Calcular riesgo
+calculos = []
+for _, row in df.iterrows():
+    rep = row["repeticiones"]
+    d = asignar_valor(deficiencia_vals, rep)
+    e = asignar_valor(exposicion_vals, rep)
+    c = asignar_valor(consecuencia_vals, rep)
+    p = d * e
+    riesgo = p * c
+    aceptabilidad = "🟥 No Aceptable" if riesgo >= 600 else "🟧 Aceptable con Control" if riesgo >= 150 else "🟩 Aceptable"
+    calculos.append((d, e, p, c, riesgo, aceptabilidad))
 
-    # Guardar el archivo en un buffer
-    pdf_output = BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
+df[["deficiencia", "exposicion", "probabilidad", "consecuencia", "peligrosidad", "aceptabilidad"]] = pd.DataFrame(calculos, index=df.index)
 
-    return pdf_output
+# 🔁 Acumulados
+total_frames = df["frame"].nunique()
+df["probabilidad_acumulada"] = df["probabilidad"].cumsum() / total_frames
+df["peligrosidad_acumulada"] = df["peligrosidad"].cumsum() / total_frames
 
-# Página de login
-def login():
-    st.title('Sistema de Gestión de Riesgos Laborales')
+# 💾 Guardar CSV
+csv_path = "riesgos_detectados.csv"
+df.to_csv(csv_path, index=False)
+print(f"\n✅ CSV guardado en: {csv_path}")
+print(f"🎥 Video guardado en: {output_path}")
 
-    # Campos de autenticación
-    username = st.text_input('Nombre de usuario')
-    password = st.text_input('Contraseña', type='password')
-
-    if st.button('Iniciar sesión'):
-        if username in users and users[username] == password:
-            st.success(f'¡Bienvenido {username}!')
-            return True
-        else:
-            st.error('Credenciales incorrectas')
-            return False
-    return False
-
-# Página principal
-def main():
-    if login():
-        page = st.sidebar.radio('Ir a:', ['Cargar Datos', 'Generar Informe PDF', 'Análisis de Riesgos'])
-
-        if page == 'Cargar Datos':
-            uploaded_file = st.file_uploader("Carga un archivo Excel", type=["xlsx"])
-            if uploaded_file is not None:
-                load_and_analyze_file(uploaded_file)
-
-        elif page == 'Generar Informe PDF':
-            df = pd.DataFrame({'Área': ['Área 1', 'Área 2'], 'Nivel de Riesgo': [3, 7]})  # Ejemplo de datos
-            if st.button('Generar PDF'):
-                pdf = generate_pdf(df)
-                st.download_button("Descargar Informe", pdf, "informe_riesgo.pdf")
-
-        elif page == 'Análisis de Riesgos':
-            st.write("Aquí puedes realizar el análisis de riesgos laborales.")
-            # Implementa el análisis según tu flujo de trabajo
-
-# Ejecutar la app
-if __name__ == '__main__':
-    main()
+# 📈 Gráfico acumulado
+plt.figure(figsize=(10, 6))
+plt.plot(df["frame"], df["probabilidad_acumulada"], label="Probabilidad Acumulada", color='blue')
+plt.plot(df["frame"], df["peligrosidad_acumulada"], label="Peligrosidad Acumulada", color='red')
+plt.xlabel("Frame")
+plt.ylabel("Valor")
+plt.title("Riesgos Acumulados")
+plt.legend()
+plt.grid(True)
+plt.tight_layout()
+plt.show()
