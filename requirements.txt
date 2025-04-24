@@ -6,3 +6,9 @@ fpdf
 opencv-python
 import cv2
 pip install opencv-python-headless
+streamlit
+opencv-python-headless
+roboflow
+scikit-learn
+matplotlib
+pandas
