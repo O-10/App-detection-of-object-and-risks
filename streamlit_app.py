@@ -125,6 +125,12 @@ if not df.empty:
     st.subheader("📋 Tabla de Eventos y Riesgos")
     st.dataframe(df)
 
+    # Guardar en archivo Excel
+    excel_file = "eventos_riesgos.xlsx"
+    df.to_excel(excel_file, index=False)
+
+    st.info(f"📂 Los datos de los eventos y riesgos han sido guardados en {excel_file}")
+
     st.subheader("📈 Gráfico de Peligrosidad Acumulada")
     df["probabilidad_acumulada"] = df["probabilidad"].cumsum()
     df["peligrosidad_acumulada"] = df["peligrosidad"].cumsum()
@@ -140,3 +146,9 @@ if not df.empty:
     st.pyplot(fig)
 else:
     st.warning("⚠️ No se detectaron objetos de interés en el frame.")
+   
+
+      
+
+
+   
