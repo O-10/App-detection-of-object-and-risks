@@ -12,3 +12,4 @@ roboflow
 scikit-learn
 matplotlib
 pandas
+import cv2
